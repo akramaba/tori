@@ -1,0 +1,44 @@
+#pragma once
+
+#include "Math.hpp"
+#include "Model.hpp"
+#include <vector>
+
+namespace tori {
+    class Scene {
+    public:
+        virtual ~Scene() = default;
+
+        virtual void init() {}
+        virtual void update() {}
+
+        Scene* parent = nullptr;
+
+        std::vector<Model*> models;
+        std::vector<Mat4> transforms;
+        
+        // Scenes can have their own lighting
+        Vec3 clear_color = { 0.1f, 0.1f, 0.12f };
+        Vec3 ambient_color = { 0.0f, 0.0f, 0.0f };
+        Vec3 sun_dir = { 0.0f, 1.0f, 0.0f };
+        Vec3 sun_color = { 1.0f, 1.0f, 1.0f };
+
+        void add_model(Model* m, Mat4 transform = Mat4::identity()) {
+            models.push_back(m);
+            transforms.push_back(transform);
+        }
+    };
+
+    class Engine {
+    public:
+        static bool init();
+        static void quit();
+        
+        static void set_scene(Scene* scene);
+        static void render();
+
+        static Scene* current_scene();
+    private:
+        static Scene* active_scene_;
+    };
+}
