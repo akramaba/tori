@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 
 :: Specifically for speed
 set CFLAGS=-O3 -march=native -flto -fno-exceptions -fno-rtti ^
--ffast-math -funroll-loops -s -pipe ^
+-ffast-math -funroll-loops -ftree-vectorize -mavx2 -s -pipe ^
 -fno-math-errno -DNDEBUG -Wall -Wextra ^
 -ffunction-sections -fdata-sections -Wl,--gc-sections
 

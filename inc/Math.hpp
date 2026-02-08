@@ -22,36 +22,37 @@ namespace tori {
         float y;
     };
 
-    struct Vec3 {
+    struct [[gnu::aligned(16)]] Vec3 {
         float x;
         float y;
         float z;
+        float _pad;
     };
 
-    struct Vec4 {
+    struct [[gnu::aligned(16)]] Vec4 {
         float x;
         float y;
         float z;
         float w;
     };
 
-    struct Quat {
+    struct [[gnu::aligned(16)]] Quat {
         float x;
         float y;
         float z;
         float w;
 
-        static Quat identity() { 
+        static constexpr Quat identity() noexcept { 
             return {
                 0, 0, 0, 1
             }; 
         }
     };
 
-    struct Mat4 {
+    struct [[gnu::aligned(16)]] Mat4 {
         float m[16];
 
-        static Mat4 identity() {
+        static constexpr Mat4 identity() noexcept {
             return {{ 
                 1, 0, 0, 0, 
                 0, 1, 0, 0, 
@@ -61,24 +62,31 @@ namespace tori {
         }
     };
 
-    struct Aabb {
+    struct [[gnu::aligned(16)]] Aabb {
         Vec3 min;
+        float _pad1;
         Vec3 max;
+        float _pad2;
     };
 
+    // Probably won't be optimized. There's only one
+    // frustrum. Contextually, the overhead is negligible.
     struct Frustum {
         Vec4 planes[6];
     };
 
     // Vec2
-    inline Vec2 operator+(Vec2 a, Vec2 b) { 
+
+    [[gnu::always_inline]] [[gnu::const]]
+    inline constexpr Vec2 operator+(Vec2 a, Vec2 b) noexcept { 
         return {
             a.x + b.x, 
             a.y + b.y
         }; 
     }
 
-    inline Vec2 operator-(Vec2 a, Vec2 b) { 
+    [[gnu::always_inline]] [[gnu::const]]
+    inline constexpr Vec2 operator-(Vec2 a, Vec2 b) noexcept { 
         return {
             a.x - b.x, 
             a.y - b.y
@@ -86,7 +94,9 @@ namespace tori {
     }
 
     // Vec3
-    inline Vec3 operator+(Vec3 a, Vec3 b) { 
+
+    [[gnu::always_inline]] [[gnu::const]]
+    inline constexpr Vec3 operator+(Vec3 a, Vec3 b) noexcept { 
         return {
             a.x + b.x, 
             a.y + b.y, 
@@ -94,7 +104,8 @@ namespace tori {
         }; 
     }
 
-    inline Vec3 operator-(Vec3 a, Vec3 b) { 
+    [[gnu::always_inline]] [[gnu::const]]
+    inline constexpr Vec3 operator-(Vec3 a, Vec3 b) noexcept { 
         return {
             a.x - b.x, 
             a.y - b.y, 
@@ -102,7 +113,8 @@ namespace tori {
         }; 
     }
 
-    inline Vec3 operator*(Vec3 v, float s) { 
+    [[gnu::always_inline]] [[gnu::const]]
+    inline constexpr Vec3 operator*(Vec3 v, float s) noexcept { 
         return {
             v.x * s, 
             v.y * s, 
@@ -112,11 +124,13 @@ namespace tori {
 
     // Math
 
-    inline float dot(Vec3 a, Vec3 b) { 
+    [[gnu::const]]
+    inline constexpr float dot(Vec3 a, Vec3 b) noexcept { 
         return a.x * b.x + a.y * b.y + a.z * b.z; 
     }
 
-    inline Vec3 cross(Vec3 a, Vec3 b) {
+    [[gnu::const]]
+    inline constexpr Vec3 cross(Vec3 a, Vec3 b) noexcept {
         return {
             a.y * b.z - a.z * b.y, 
             a.z * b.x - a.x * b.z, 
@@ -124,14 +138,16 @@ namespace tori {
         };
     }
 
-    inline float length(Vec3 v) { 
+    [[gnu::const]]
+    inline float length(Vec3 v) noexcept { 
         return std::sqrt(dot(v, v)); 
     }
 
-    inline Vec3 normalize(Vec3 v) {
+    [[gnu::const]]
+    inline Vec3 normalize(Vec3 v) noexcept {
         float len = length(v);
 
-        if (len > 0.0001f) {
+        if (len > 0.0001f) [[likely]] {
             return v * (1.0f / len);
         } else {
             return Vec3{ 0, 0, 0 };
@@ -140,7 +156,8 @@ namespace tori {
 
     // Quaternions
 
-    inline Quat quat_from_euler(float pitch, float yaw, float roll) {
+    [[gnu::const]]
+    inline Quat quat_from_euler(float pitch, float yaw, float roll) noexcept {
         float cy = std::cos(yaw * 0.5f);
         float sy = std::sin(yaw * 0.5f);
         float cp = std::cos(pitch * 0.5f);
@@ -156,7 +173,8 @@ namespace tori {
         };
     }
 
-    inline Quat normalize(Quat q) {
+    [[gnu::const]]
+    inline Quat normalize(Quat q) noexcept {
         float len = std::sqrt(
             q.x * q.x + 
             q.y * q.y + 
@@ -164,7 +182,9 @@ namespace tori {
             q.w * q.w
         );
 
-        if (len < 0.0001f) return Quat::identity();
+        if (len < 0.0001f) [[unlikely]] {
+            return Quat::identity();
+        }
         
         float inv = 1.0f / len;
 
@@ -175,8 +195,9 @@ namespace tori {
             q.w * inv
         };
     }
-
-    inline Quat operator*(Quat a, Quat b) {
+    
+    [[gnu::always_inline]] [[gnu::const]]
+    inline constexpr Quat operator*(Quat a, Quat b) noexcept {
         return {
             a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
             a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
@@ -185,7 +206,8 @@ namespace tori {
         };
     }
 
-    inline Vec3 rotate(Quat q, Vec3 v) {
+    [[gnu::const]]
+    inline constexpr Vec3 rotate(Quat q, Vec3 v) noexcept {
         Vec3 u = { q.x, q.y, q.z };
         float s = q.w;
         Vec3 t = cross(u, v) * 2.0f;
@@ -195,7 +217,9 @@ namespace tori {
 
     // Matrix Functions
 
-    inline Mat4 operator*(const Mat4& a, const Mat4& b) {
+    // -ffast-math, -ftree-vectorize, & -funroll-loops help. Mat4 mul. is heavy
+    [[gnu::pure]]
+    inline constexpr Mat4 operator*(const Mat4& a, const Mat4& b) noexcept {
         Mat4 r = { 0 };
 
         for (int i = 0; i < 4; i++) {
@@ -209,7 +233,8 @@ namespace tori {
         return r;
     }
 
-    inline Mat4 translate(Vec3 t) {
+    [[gnu::const]]
+    inline constexpr Mat4 translate(Vec3 t) noexcept {
         Mat4 m = Mat4::identity();
 
         m.m[12] = t.x; 
@@ -219,7 +244,8 @@ namespace tori {
         return m;
     }
 
-    inline Mat4 scale(Vec3 s) {
+    [[gnu::const]]
+    inline constexpr Mat4 scale(Vec3 s) noexcept {
         Mat4 m = Mat4::identity();
 
         m.m[0] = s.x; 
@@ -229,8 +255,10 @@ namespace tori {
         return m;
     }
 
-    inline Mat4 mat4_rotate(Quat q) {
+    [[gnu::const]]
+    inline constexpr Mat4 mat4_rotate(Quat q) noexcept {
         Mat4 m = Mat4::identity();
+
         float xx = q.x * q.x;
         float yy = q.y * q.y;
         float zz = q.z * q.z;
@@ -256,7 +284,8 @@ namespace tori {
         return m;
     }
 
-    inline Mat4 perspective(float fov, float aspect, float near_plane, float far_plane) {
+    [[gnu::const]]
+    inline Mat4 perspective(float fov, float aspect, float near_plane, float far_plane) noexcept {
         Mat4 m = { 0 };
         float f = 1.0f / std::tan(fov * 0.5f);
 
@@ -269,7 +298,8 @@ namespace tori {
         return m;
     }
 
-    inline Mat4 look_at(Vec3 eye, Vec3 target, Vec3 up) {
+    [[gnu::const]]
+    inline Mat4 look_at(Vec3 eye, Vec3 target, Vec3 up) noexcept {
         Vec3 f = normalize(target - eye);
         Vec3 r = normalize(cross(f, up));
         Vec3 u = cross(r, f);
@@ -295,13 +325,14 @@ namespace tori {
 
     // Frustum/Collision
 
-    inline Frustum extract_frustum(const Mat4& vp) {
+    [[gnu::pure]]
+    inline Frustum extract_frustum(const Mat4& vp) noexcept {
         Frustum f;
         const float* m = vp.m;
         
         auto set = [&](int i, float a, float b, float c, float d) {
             float len = std::sqrt(a * a + b * b + c * c);
-            if (len > 0.0001f) { 
+            if (len > 0.0001f) [[likely]] { 
                 a /= len; 
                 b /= len; 
                 c /= len; 
@@ -323,10 +354,11 @@ namespace tori {
         return f;
     }
 
-    inline bool cull_aabb(const Frustum& f, const Aabb& box) {
+    [[gnu::hot]] [[gnu::pure]]
+    inline constexpr bool cull_aabb(const Frustum& f, const Aabb& box) noexcept {
         for (int i = 0; i < 6; i++) {
             Vec4 p = f.planes[i];
-            
+
             Vec3 positive = {
                 p.x > 0 ? box.max.x : box.min.x,
                 p.y > 0 ? box.max.y : box.min.y,
@@ -343,14 +375,17 @@ namespace tori {
 
     // Files
     
+    [[gnu::cold]]
     inline std::vector<char> read_file(const char* path) {
         std::ifstream file(path, std::ios::binary | std::ios::ate);
-        if (!file) {
+
+        if (!file) [[unlikely]] {
             return {};
         }
 
         std::streamsize size = file.tellg();
-        if (size <= 0) {
+        
+        if (size <= 0) [[unlikely]] {
             return {};
         }
 

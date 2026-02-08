@@ -1,3 +1,5 @@
+#### If interested, please see the changelog folder for commit notes.
+
 # Tori - 3D Engine in C++
 
 ## About

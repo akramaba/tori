@@ -15,38 +15,8 @@
 namespace tori {
     Shader Model::skin_shader_;
 
-    static Mat4 identity_mat() {
-        return {{ 
-            1, 0, 0, 0, 
-            0, 1, 0, 0, 
-            0, 0, 1, 0, 
-            0, 0, 0, 1 
-        }};
-    }
-
-    static Quat identity_quat() {
-        return { 0, 0, 0, 1 };
-    }
-
-    static Mat4 mul(const Mat4& a, const Mat4& b) {
-        Mat4 r = { 0 };
-
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4; j++) {
-                float sum = 0.0f;
-
-                for (int k = 0; k < 4; k++) {
-                    sum += a.m[i * 4 + k] * b.m[k * 4 + j];
-                }
-                
-                r.m[i * 4 + j] = sum;
-            }
-        }
-
-        return r;
-    }
-
-    static Mat4 invert(Mat4 m) {
+    [[gnu::const]]
+    static Mat4 invert(Mat4 m) noexcept {
         const float* a = m.m;
         Mat4 inv;
         float* o = inv.m;
@@ -66,8 +36,9 @@ namespace tori {
         float c0 = a[8] * a[13] - a[12] * a[9];
         
         float det = s0 * c5 - s1 * c4 + s2 * c3 + s3 * c2 - s4 * c1 + s5 * c0;
-        if (std::fabs(det) < 1e-10f) {
-            return identity_mat(); // Can't invert
+
+        if (std::fabs(det) < 1e-10f) [[unlikely]] {
+            return Mat4::identity();
         }
 
         float invdet = 1.0f / det;
@@ -93,7 +64,8 @@ namespace tori {
         return inv;
     }
 
-    static Quat slerp(Quat a, Quat b, float t) {
+    [[gnu::const]]
+    static Quat slerp(Quat a, Quat b, float t) noexcept {
         float d = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 
         if (d < 0) { 
@@ -104,7 +76,9 @@ namespace tori {
             d = -d; 
         }
         
-        if (d > 0.9995f) {
+        // Rotation changes are likely to be small,
+        // but best to test this at some point.
+        if (d > 0.9995f) [[likely]] {
             Quat r = {
                 a.x + (b.x - a.x) * t, 
                 a.y + (b.y - a.y) * t, 
@@ -128,7 +102,8 @@ namespace tori {
         };
     }
 
-    static Vec3 lerp_vec3(Vec3 a, Vec3 b, float t) {
+    [[gnu::always_inline]] [[gnu::const]]
+    static inline constexpr Vec3 lerp_vec3(Vec3 a, Vec3 b, float t) noexcept {
         return {
             a.x + (b.x - a.x) * t, 
             a.y + (b.y - a.y) * t, 
@@ -136,16 +111,21 @@ namespace tori {
         };
     }
 
-    static Mat4 compose_srt(Vec3 s, Quat r, Vec3 t) {
+    [[gnu::const]]
+    static Mat4 compose_srt(Vec3 s, Quat r, Vec3 t) noexcept {
         Mat4 ms = scale(s);
         Mat4 mr = mat4_rotate(r);
         Mat4 mt = translate(t);
 
-        return mul(ms, mul(mr, mt)); 
+        return ms * (mr * mt); 
     }
 
-    static int find_node_idx(cgltf_data* data, cgltf_node* node) {
-        if (!node) return -1;
+    [[gnu::pure]]
+    static int find_node_idx(cgltf_data* data, cgltf_node* node) noexcept {
+        if (!node) [[unlikely]] {
+            return -1;
+        }
+        
         return (int)(node - data->nodes);
     }
 
@@ -227,17 +207,18 @@ namespace tori {
         }
     }
 
+    [[gnu::cold]] // Loading happens rarely. This also should make animate & draw closer memory-wise.
     Model* Model::load(const char* path) {
         ensure_shader();
 
         cgltf_options opt = {};
         cgltf_data* data = nullptr;
         
-        if (cgltf_parse_file(&opt, path, &data) != cgltf_result_success) {
+        if (cgltf_parse_file(&opt, path, &data) != cgltf_result_success) [[unlikely]] {
             return nullptr;
         }
 
-        if (cgltf_load_buffers(&opt, data, path) != cgltf_result_success) {
+        if (cgltf_load_buffers(&opt, data, path) != cgltf_result_success) [[unlikely]] {
             cgltf_free(data);
             return nullptr;
         }
@@ -254,7 +235,7 @@ namespace tori {
             
             // TODO: Shorten each struct init
             node.translation = n->has_translation ? Vec3{ n->translation[0], n->translation[1], n->translation[2] } : Vec3{ 0, 0, 0 };
-            node.rotation = n->has_rotation ? Quat{ n->rotation[0], n->rotation[1], n->rotation[2], n->rotation[3] } : identity_quat();
+            node.rotation = n->has_rotation ? Quat{ n->rotation[0], n->rotation[1], n->rotation[2], n->rotation[3] } : Quat::identity();
             node.scale = n->has_scale ? Vec3{ n->scale[0], n->scale[1], n->scale[2] } : Vec3{ 1, 1, 1 };
 
             node.local = compose_srt(node.scale, node.rotation, node.translation);
@@ -271,7 +252,7 @@ namespace tori {
 
             m->joint_nodes_.resize(joint_count);
             m->inverse_binds_.resize(joint_count);
-            m->joint_matrices_.resize(joint_count, identity_mat());
+            m->joint_matrices_.resize(joint_count, Mat4::identity());
 
             for (int i = 0; i < joint_count; ++i) {
                 m->joint_nodes_[i] = find_node_idx(data, skin->joints[i]);
@@ -279,7 +260,7 @@ namespace tori {
                 if (skin->inverse_bind_matrices) {
                     cgltf_accessor_read_float(skin->inverse_bind_matrices, i, m->inverse_binds_[i].m, 16);
                 } else {
-                    m->inverse_binds_[i] = identity_mat();
+                    m->inverse_binds_[i] = Mat4::identity();
                 }
             }
         }
@@ -332,7 +313,9 @@ namespace tori {
                     }
                 }
 
-                if (!pos) continue;
+                if (!pos) [[unlikely]] {
+                    continue;
+                }
 
                 size_t vert_count = pos->count;
                 
@@ -496,7 +479,7 @@ namespace tori {
                 Channel ch;
                 ch.node_index = find_node_idx(data, gc->target_node);
 
-                if (ch.node_index < 0) {
+                if (ch.node_index < 0) [[unlikely]] {
                     continue; // Invalid
                 }
 
@@ -529,39 +512,46 @@ namespace tori {
         return m;
     }
 
+    [[gnu::hot]]
     void Model::animate(int anim_idx, float time) {
-        if (anim_idx < 0 || anim_idx >= (int)animations_.size()) {
+        if (anim_idx < 0 || anim_idx >= (int)animations_.size()) [[unlikely]] {
             return;
         }
 
         Anim& anim = animations_[anim_idx];
 
-        if (anim.duration > 0) {
+        if (anim.duration > 0) [[likely]] {
             time = std::fmod(time, anim.duration);
         }
 
         for (const auto& ch : anim.channels) {
-            if (ch.node_index < 0 || ch.times.empty()) continue;
+            if (ch.node_index < 0 || ch.times.empty()) [[unlikely]] {
+                continue; // Invalid
+            }
 
             size_t k0 = 0;
             size_t k1 = 0;
 
+            // Between which two keyframes does the current time fall?
             for (size_t k = 0; k < ch.times.size() - 1; ++k) {
-                if (time >= ch.times[k] && time < ch.times[k + 1]) { 
+                // The first if statement is for finding the frame once, so it
+                // shouldn't be hot. The second is for just the last frame and rare.
+
+                if (time >= ch.times[k] && time < ch.times[k + 1]) [[unlikely]] { 
                     k0 = k;
                     k1 = k + 1;
 
                     break; 
                 }
 
-                if (k == ch.times.size() - 2) { 
+                if (k == ch.times.size() - 2) [[unlikely]] { 
                     k0 = k1 = ch.times.size() - 1; 
                 }
             }
 
             float t = 0;
 
-            if (k0 != k1 && ch.times[k1] != ch.times[k0]) {
+            if (k0 != k1 && ch.times[k1] != ch.times[k0]) [[likely]] {
                 t = (time - ch.times[k0]) / (ch.times[k1] - ch.times[k0]);
             }
 
@@ -587,7 +577,7 @@ namespace tori {
                     v1[2]
                 };
 
-                if (ch.interpolation == 1) {
+                if (ch.interpolation == 1) [[unlikely]] {
                     node.translation = a;
                 } else {
                     node.translation = lerp_vec3(a, b, t);
@@ -607,7 +597,7 @@ namespace tori {
                     v1[3]
                 };
 
-                if (ch.interpolation == 1) {
+                if (ch.interpolation == 1) [[unlikely]] {
                     node.rotation = a;
                 } else {
                     node.rotation = slerp(a, b, t);
@@ -625,7 +615,7 @@ namespace tori {
                     v1[2]
                 };
 
-                if (ch.interpolation == 1) {
+                if (ch.interpolation == 1) [[unlikely]] {
                     node.scale = a;
                 } else {
                     node.scale = lerp_vec3(a, b, t);
@@ -640,8 +630,8 @@ namespace tori {
 
         // Local * Parent
         for (size_t i = 0; i < nodes_.size(); ++i) {
-            if (nodes_[i].parent >= 0) {
-                nodes_[i].global = mul(nodes_[i].local, nodes_[nodes_[i].parent].global);
+            if (nodes_[i].parent >= 0) [[likely]] {
+                nodes_[i].global = nodes_[i].local * nodes_[nodes_[i].parent].global;
             } else {
                 nodes_[i].global = nodes_[i].local;
             }
@@ -650,22 +640,25 @@ namespace tori {
         // Inverse, global[node]
         for (size_t i = 0; i < joint_nodes_.size(); ++i) {
             int node_idx = joint_nodes_[i];
-            if (node_idx >= 0) {
-                joint_matrices_[i] = mul(inverse_binds_[i], nodes_[node_idx].global);
+            if (node_idx >= 0) [[likely]] {
+                joint_matrices_[i] = inverse_binds_[i] * nodes_[node_idx].global;
             }
         }
     }
 
+    [[gnu::hot]]
     void Model::draw(const Mat4& mvp) {
-        if (!skin_shader_.is_valid()) {
+        if (!skin_shader_.is_valid()) [[unlikely]] {
             return;
         }
 
         skin_shader_.use();
         
-        // ? Try caching instead of sending a bool every draw (for speed)
         bool skinned = !joint_nodes_.empty();
-        glUniform1i(glGetUniformLocation(skin_shader_.id(), "u_skinned"), skinned ? 1 : 0);
+
+        // Tries caching instead of sending a bool every draw
+        static GLint u_skinned_loc = glGetUniformLocation(skin_shader_.id(), "u_skinned");
+        glUniform1i(u_skinned_loc, skinned ? 1 : 0);
         
         if (skinned) {
             glUniformMatrix4fv(
@@ -677,7 +670,7 @@ namespace tori {
         }
 
         skin_shader_.set("u_mvp", mvp);
-        skin_shader_.set("u_model", identity_mat());
+        skin_shader_.set("u_model", Mat4::identity());
         skin_shader_.set("u_sun_dir", Vec3{ 0.5f, 1.0f, 0.3f });
 
         for (const auto& m : meshes_) {
@@ -690,16 +683,19 @@ namespace tori {
         glBindVertexArray(0);
     }
 
-    Aabb Model::bounds() const { 
+    [[gnu::pure]]
+    Aabb Model::bounds() const noexcept { 
         return bounds_;
     }
 
-    int Model::anim_count() const { 
+    [[gnu::pure]]
+    int Model::anim_count() const noexcept { 
         return (int)animations_.size(); 
     }
 
-    float Model::anim_duration(int idx) const { 
-        if (idx >= 0 && idx < (int)animations_.size()) {
+    [[gnu::pure]]
+    float Model::anim_duration(int idx) const noexcept { 
+        if (idx >= 0 && idx < (int)animations_.size()) [[likely]] {
             return animations_[idx].duration;
         }
 
