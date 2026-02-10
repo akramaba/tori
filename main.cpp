@@ -36,7 +36,6 @@ int main() {
 
     scene_b.parent = &base_scene;
 
-    // Start in Scene A
     Engine::set_scene(&scene_a);
 
     while (!Window::should_close()) {

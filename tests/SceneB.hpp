@@ -43,7 +43,6 @@ public:
             camera.yaw = 3.14159f;
             camera.pitch = 0;
             camera.fov = 60.0f * DEG2RAD;
-            camera.update();
         }
     }
 

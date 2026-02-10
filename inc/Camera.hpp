@@ -20,14 +20,20 @@ namespace tori {
         void fly(float speed, float sensitivity);
         
         // Utils
-        bool cull(const Aabb& box) const;
-        Vec3 forward() const;
-        Vec3 right() const;
+        [[gnu::pure]] bool cull(const Aabb& box) const noexcept;
+        [[gnu::pure]] Vec3 forward() const noexcept;
+        [[gnu::pure]] Vec3 right() const noexcept;
 
         // Matrix
-        const Mat4& view() const;
-        const Mat4& proj() const;
+        [[gnu::pure]] const Mat4& view() const noexcept;
+        [[gnu::pure]] const Mat4& proj() const noexcept;
     private:
+        void update_vectors();
+
+        Vec3 forward_;
+        Vec3 right_;
+        Vec3 up_;
+
         Mat4 view_;
         Mat4 proj_;
         Frustum frustum_;

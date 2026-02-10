@@ -26,6 +26,7 @@ namespace tori {
         state_.prev_mouse_pos = state_.mouse_pos;
     }
 
+    [[gnu::hot]]
     void Input::update() {
         std::memcpy(state_.prev_keys, state_.keys, sizeof(state_.keys));
         std::memcpy(state_.prev_buttons, state_.buttons, sizeof(state_.buttons));
@@ -38,25 +39,25 @@ namespace tori {
         while (RGFW_window_checkEvent(win, &event)) {
             switch (event.type) {
                 case RGFW_keyPressed:
-                    if (event.key.value < MAX_KEYS) {
+                    if (event.key.value < MAX_KEYS) [[likely]] {
                         state_.keys[event.key.value] = true;
                     }
                     
                     break;
                 case RGFW_keyReleased:
-                    if (event.key.value < MAX_KEYS) {
+                    if (event.key.value < MAX_KEYS) [[likely]] {
                         state_.keys[event.key.value] = false;
                     }
 
                     break;
                 case RGFW_mouseButtonPressed:
-                    if (event.button.value < MAX_BUTTONS) {
+                    if (event.button.value < MAX_BUTTONS) [[likely]] {
                         state_.buttons[event.button.value] = true;
                     }
 
                     break;
                 case RGFW_mouseButtonReleased:
-                    if (event.button.value < MAX_BUTTONS) {
+                    if (event.button.value < MAX_BUTTONS) [[likely]] {
                         state_.buttons[event.button.value] = false;
                     }
 
@@ -68,7 +69,7 @@ namespace tori {
                     state_.mouse_pos.x = (float)event.mouse.x;
                     state_.mouse_pos.y = (float)event.mouse.y;
 
-                    if (state_.first_mouse) {
+                    if (state_.first_mouse) [[unlikely]] {
                         state_.prev_mouse_pos = state_.mouse_pos;
                         state_.first_mouse = false;
                     }
@@ -80,45 +81,54 @@ namespace tori {
         }
     }
 
-    bool Input::key(Key k) {
-        int idx = static_cast<int>(k);
-        return idx >= 0 && idx < MAX_KEYS && state_.keys[idx];
+    [[gnu::pure]]
+    bool Input::key(Key k) noexcept {
+        unsigned idx = static_cast<unsigned>(k);
+        return (idx < MAX_KEYS) && state_.keys[idx];
     }
 
-    bool Input::key_down(Key k) {
-        int idx = static_cast<int>(k);
-        return idx >= 0 && idx < MAX_KEYS && state_.keys[idx] && !state_.prev_keys[idx];
+    [[gnu::pure]]
+    bool Input::key_down(Key k) noexcept {
+        unsigned idx = static_cast<unsigned>(k);
+        return (idx < MAX_KEYS) && state_.keys[idx] && !state_.prev_keys[idx];
     }
 
-    bool Input::key_up(Key k) {
-        int idx = static_cast<int>(k);
-        return idx >= 0 && idx < MAX_KEYS && !state_.keys[idx] && state_.prev_keys[idx];
+    [[gnu::pure]]
+    bool Input::key_up(Key k) noexcept {
+        unsigned idx = static_cast<unsigned>(k);
+        return (idx < MAX_KEYS) && !state_.keys[idx] && state_.prev_keys[idx];
     }
 
-    bool Input::mouse_btn(MouseButton b) {
-        int idx = static_cast<int>(b);
-        return idx >= 0 && idx < MAX_BUTTONS && state_.buttons[idx];
+    [[gnu::pure]]
+    bool Input::mouse_btn(MouseButton b) noexcept {
+        unsigned idx = static_cast<unsigned>(b);
+        return (idx < MAX_BUTTONS) && state_.buttons[idx];
     }
 
-    bool Input::mouse_btn_down(MouseButton b) {
-        int idx = static_cast<int>(b);
-        return idx >= 0 && idx < MAX_BUTTONS && state_.buttons[idx] && !state_.prev_buttons[idx];
+    [[gnu::pure]]
+    bool Input::mouse_btn_down(MouseButton b) noexcept {
+        unsigned idx = static_cast<unsigned>(b);
+        return (idx < MAX_BUTTONS) && state_.buttons[idx] && !state_.prev_buttons[idx];
     }
 
-    bool Input::mouse_btn_up(MouseButton b) {
-        int idx = static_cast<int>(b);
-        return idx >= 0 && idx < MAX_BUTTONS && !state_.buttons[idx] && state_.prev_buttons[idx];
+    [[gnu::pure]]
+    bool Input::mouse_btn_up(MouseButton b) noexcept {
+        unsigned idx = static_cast<unsigned>(b);
+        return (idx < MAX_BUTTONS) && !state_.buttons[idx] && state_.prev_buttons[idx];
     }
 
-    Vec2 Input::mouse_pos() { 
+    [[gnu::pure]]
+    Vec2 Input::mouse_pos() noexcept { 
         return state_.mouse_pos; 
     }
     
-    Vec2 Input::mouse_delta() {
+    [[gnu::pure]]
+    Vec2 Input::mouse_delta() noexcept {
         return state_.mouse_pos - state_.prev_mouse_pos;
     }
 
-    float Input::scroll() { 
+    [[gnu::pure]]
+    float Input::scroll() noexcept { 
         return state_.scroll; 
     }
 

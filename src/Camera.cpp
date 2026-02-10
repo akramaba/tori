@@ -14,32 +14,58 @@ namespace tori {
         fov = 60.0f * DEG2RAD;
         near_clip = 0.1f;
         far_clip = 1000.0f;
-
-        update();
     }
 
-    Vec3 Camera::forward() const {
-        return {
-            std::cos(yaw) * std::cos(pitch),
-            std::sin(pitch),
-            std::sin(yaw) * std::cos(pitch)
+    [[gnu::pure]]
+    Vec3 Camera::forward() const noexcept {
+        return forward_;
+    }
+
+    [[gnu::pure]]
+    Vec3 Camera::right() const noexcept {
+        return right_;
+    }
+
+    void Camera::update_vectors() {
+        float sp = std::sin(pitch);
+        float cp = std::cos(pitch);
+        float sy = std::sin(yaw);
+        float cy = std::cos(yaw);
+
+        // Saving vectors is faster than recomputing trig every frame
+
+        forward_ = {
+            cy * cp,
+            sp,
+            sy * cp
         };
+
+        right_ = { 
+            -sy, 
+            0.0f, 
+            cy 
+        };
+
+        up_ = cross(right_, forward_);
     }
 
-    Vec3 Camera::right() const {
-        return normalize(cross(forward(), { 0, 1, 0 }));
-    }
-
+    [[gnu::hot]]
     void Camera::update() {
-        Vec3 fwd = forward();
-        Vec3 target = position + fwd;
-        Vec3 up = { 0, 1, 0 };
-
-        view_ = look_at(position, target, up);
+        Vec3 target = position + forward_;
+        Vec3 world_up = { 
+            0,
+            1,
+            0 
+        };
+        
+        view_ = look_at(position, target, world_up);
 
         float aspect = (float)Window::width() / (float)Window::height();
+
         // If the window is minimized, potential divide by zero
-        if (Window::height() == 0) aspect = 1.0f;
+        if (Window::height() == 0) [[unlikely]] {
+            aspect = 1.0f;
+        }
 
         proj_ = perspective(fov, aspect, near_clip, far_clip);
 
@@ -48,56 +74,36 @@ namespace tori {
         frustum_ = extract_frustum(vp);
     }
 
+    [[gnu::hot]]
     void Camera::fly(float speed, float sensitivity) {
-        // Mouse look (hold RMB)
-        if (Input::mouse_btn(MouseButton::Right)) {
-            Input::set_cursor_locked(true);
-            
-            Vec2 delta = Input::mouse_delta();
-            
-            yaw += delta.x * sensitivity;
-            pitch -= delta.y * sensitivity;
-
-            // Clamp pitch
-
-            float max_pitch = 89.0f * DEG2RAD;
-
-            if (pitch > max_pitch) {
-                pitch = max_pitch;
-            }
-
-            if (pitch < -max_pitch) {
-                pitch = -max_pitch;
-            }
-        } else {
-            Input::set_cursor_locked(false);
+        // TODO: Not use lazy init
+        static bool first_time = true;
+        if (first_time) [[unlikely]] {
+            first_time = false;
+            update_vectors();
         }
 
-        // Keyboard movement
-
-        Vec3 fwd = forward();
-        Vec3 rgt = right();
         float dt = Window::dt();
         float move_speed = speed * dt;
 
-        if (Input::key(Key::Shift)) {
+        if (Input::key(Key::Shift)) [[unlikely]] {
             move_speed *= 2.5f;
         }
 
         if (Input::key(Key::W)) {
-            position = position + (fwd * move_speed);
+            position = position + (forward_ * move_speed);
         }
 
         if (Input::key(Key::S)) {
-            position = position - (fwd * move_speed);
+            position = position - (forward_ * move_speed);
         }
 
         if (Input::key(Key::D)) {
-            position = position + (rgt * move_speed);
+            position = position + (right_ * move_speed);
         }
 
         if (Input::key(Key::A)) {
-            position = position - (rgt * move_speed);
+            position = position - (right_ * move_speed);
         }
 
         if (Input::key(Key::E)) {
@@ -110,7 +116,7 @@ namespace tori {
 
         // Zoom
         float scroll_delta = Input::scroll();
-        if (scroll_delta != 0) {
+        if (scroll_delta != 0) [[unlikely]] {
             fov -= scroll_delta * 2.0f * DEG2RAD;
             
             if (fov < 10.0f * DEG2RAD) {
@@ -125,15 +131,18 @@ namespace tori {
         update();
     }
 
-    bool Camera::cull(const Aabb& box) const {
+    [[gnu::pure]]
+    bool Camera::cull(const Aabb& box) const noexcept {
         return cull_aabb(frustum_, box);
     }
 
-    const Mat4& Camera::view() const {
+    [[gnu::pure]]
+    const Mat4& Camera::view() const noexcept {
         return view_;
     }
 
-    const Mat4& Camera::proj() const {
+    [[gnu::pure]]
+    const Mat4& Camera::proj() const noexcept {
         return proj_;
     }
 }
