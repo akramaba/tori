@@ -3,6 +3,7 @@
 #include "inc/Camera.hpp"
 #include "inc/Engine.hpp"
 #include "inc/Audio.hpp"
+#include "inc/Arena.hpp"
 
 #include "tests/BaseScene.hpp"
 #include "tests/SceneA.hpp"
@@ -23,15 +24,25 @@ void SceneA::copy_models_to_b() {
 }
 
 int main() {
+    // Arena Test - 4 bytes apart
+
+    tori::Arena arena; 
+    arena.init(1024);
+
+    int* a = arena.alloc<int>(); 
+    int* b = arena.alloc<int>();
+
+    std::printf("Arena Test - %ld bytes apart\n", (char*)b - (char*)a);
+
+    // Tori Test
+
     if (!Window::init(1280, 720, "Tori")) {
         return 1;
     }
 
     Input::init();
     camera.init();
-    if (!Engine::init()) {
-        return 1;
-    }
+    Engine::init(); // Always true at the moment
     Audio::init();
 
     scene_b.parent = &base_scene;
