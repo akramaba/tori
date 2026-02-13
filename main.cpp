@@ -4,6 +4,7 @@
 #include "inc/Engine.hpp"
 #include "inc/Audio.hpp"
 #include "inc/Arena.hpp"
+#include "inc/Octree.hpp"
 
 #include "tests/BaseScene.hpp"
 #include "tests/SceneA.hpp"
@@ -32,7 +33,23 @@ int main() {
     int* a = arena.alloc<int>(); 
     int* b = arena.alloc<int>();
 
-    std::printf("Arena Test - %ld bytes apart\n", (char*)b - (char*)a);
+    std::printf("Arena Test - %lld bytes apart\n", (char*)b - (char*)a);
+
+    // Octree Test - Found 1 item
+
+    tori::Octree octree(tori::Aabb{ { -100, -100, -100 }, 0.f, { 100, 100, 100 }, 0.f });
+    
+    int i1 = 1; 
+    int i2 = 2;
+
+    // Inside
+    octree.insert(&i1, tori::Aabb{ { 0, 0, 0 }, 0.f, { 1, 1, 1 }, 0.f });       
+    // Outside
+    octree.insert(&i2, tori::Aabb{ { 90, 90, 90 }, 0.f, { 91, 91, 91 }, 0.f }); 
+
+    std::vector<void*> results = octree.query(tori::Aabb{ { -10, -10, -10 }, 0.f, { 10, 10, 10 }, 0.f });
+    
+    std::printf("Octree Test - Found %zu item\n", results.size());
 
     // Tori Test
 
