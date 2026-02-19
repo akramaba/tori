@@ -2,6 +2,7 @@
 
 #include "Math.hpp"
 #include "Model.hpp"
+#include "Arena.hpp"
 #include <vector>
 
 namespace tori {
@@ -29,6 +30,11 @@ namespace tori {
         }
     };
 
+    struct RenderCommand {
+        Model* model;
+        Mat4 mvp;
+    };
+
     class Engine {
     public:
         static bool init();
@@ -38,7 +44,10 @@ namespace tori {
         static void render();
 
         static Scene* current_scene();
+        
+        static Arena& arena();
     private:
         static Scene* active_scene_;
+        static Arena arena_;
     };
 }

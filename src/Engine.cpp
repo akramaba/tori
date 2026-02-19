@@ -4,9 +4,11 @@
 #include "../lib/miniglad.h"
 
 namespace tori {
+    Arena Engine::arena_;
     Scene* Engine::active_scene_ = nullptr;
 
     bool Engine::init() {
+        arena_.init(10 * 1024 * 1024);
         return true;
     }
 
@@ -64,6 +66,8 @@ namespace tori {
             return;
         }
 
+        arena_.reset();
+
         Mat4 view = camera.view();
         Mat4 proj = camera.proj();
         Mat4 vp = proj * view;
@@ -72,16 +76,34 @@ namespace tori {
         size_t tf_count = active_scene_->transforms.size();
 
         // Render all models in the scene w/ any transforms
+
+        // Allocate RenderCommands from Arena
+        RenderCommand* commands = arena_.alloc_array<RenderCommand>(count);
+
+        if (!commands) {
+            return;
+        }
+
+        // Fill RenderCommands
         for (size_t i = 0; i < count; ++i) {
             Model* model = active_scene_->models[i];
             if (!model) {
+                commands[i].model = nullptr;
                 continue;
             }
 
             Mat4 model_matrix = (i < tf_count) ? active_scene_->transforms[i] : Mat4::identity();
             Mat4 mvp = vp * model_matrix;
 
-            model->draw(mvp);
+            commands[i].model = model;
+            commands[i].mvp = mvp;
+        }
+
+        // Execute RenderCommands
+        for (size_t i = 0; i < count; ++i) {
+            if (commands[i].model) {
+                commands[i].model->draw(commands[i].mvp);
+            }
         }
 
         call_update_chain(active_scene_);
@@ -89,5 +111,9 @@ namespace tori {
 
     Scene* Engine::current_scene() {
         return active_scene_;
+    }
+
+    Arena& Engine::arena() {
+        return arena_;
     }
 }
