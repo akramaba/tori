@@ -3,11 +3,13 @@
 #include "Math.hpp"
 #include "Model.hpp"
 #include "Arena.hpp"
+#include "Octree.hpp"
 #include <vector>
 
 namespace tori {
     class Scene {
     public:
+        Scene();
         virtual ~Scene() = default;
 
         virtual void init() {}
@@ -24,10 +26,9 @@ namespace tori {
         Vec3 sun_dir = { 0.0f, 1.0f, 0.0f };
         Vec3 sun_color = { 1.0f, 1.0f, 1.0f };
 
-        void add_model(Model* m, Mat4 transform = Mat4::identity()) {
-            models.push_back(m);
-            transforms.push_back(transform);
-        }
+        std::unique_ptr<Octree> model_octree;
+
+        void add_model(Model* model, Mat4 transform = Mat4::identity());
     };
 
     struct RenderCommand {

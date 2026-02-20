@@ -6,6 +6,26 @@
 namespace tori {
     Arena Engine::arena_;
     Scene* Engine::active_scene_ = nullptr;
+    
+    Scene::Scene() {
+        model_octree = std::make_unique<Octree>(Aabb{
+            { -10000.0f, -10000.0f, -10000.0f }, 0,
+            { 10000.0f, 10000.0f, 10000.0f }, 0
+        });
+    }
+
+    void Scene::add_model(Model* model, Mat4 transform) {
+        if (!model) {
+            return;
+        }
+        
+        models.push_back(model);
+        transforms.push_back(transform);
+
+        size_t index = models.size() - 1;
+        Aabb world_bounds = transform_aabb(transform, model->bounds());
+        model_octree->insert((void*)index, world_bounds);
+    }
 
     bool Engine::init() {
         arena_.init(10 * 1024 * 1024);
@@ -72,27 +92,32 @@ namespace tori {
         Mat4 proj = camera.proj();
         Mat4 vp = proj * view;
 
-        size_t count = active_scene_->models.size();
-        size_t tf_count = active_scene_->transforms.size();
+        // Frustum Culling via Octree
+        Frustum frustum = extract_frustum(vp);
+        std::vector<void*> visible_indices = active_scene_->model_octree->query(frustum);
+        
+        size_t visible_count = visible_indices.size();
+        printf("Visible models: %zu\n", visible_count);
+        
+        // Render visible models w/ any transforms
 
-        // Render all models in the scene w/ any transforms
-
-        // Allocate RenderCommands from Arena
-        RenderCommand* commands = arena_.alloc_array<RenderCommand>(count);
+        RenderCommand* commands = arena_.alloc_array<RenderCommand>(visible_count);
 
         if (!commands) {
             return;
         }
 
         // Fill RenderCommands
-        for (size_t i = 0; i < count; ++i) {
-            Model* model = active_scene_->models[i];
+        for (size_t i = 0; i < visible_count; ++i) {
+            size_t idx = (size_t)visible_indices[i];
+            Model* model = active_scene_->models[idx];
+            
             if (!model) {
                 commands[i].model = nullptr;
                 continue;
             }
 
-            Mat4 model_matrix = (i < tf_count) ? active_scene_->transforms[i] : Mat4::identity();
+            Mat4 model_matrix = active_scene_->transforms[idx];
             Mat4 mvp = vp * model_matrix;
 
             commands[i].model = model;
@@ -100,7 +125,7 @@ namespace tori {
         }
 
         // Execute RenderCommands
-        for (size_t i = 0; i < count; ++i) {
+        for (size_t i = 0; i < visible_count; ++i) {
             if (commands[i].model) {
                 commands[i].model->draw(commands[i].mvp);
             }

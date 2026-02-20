@@ -378,6 +378,88 @@ namespace tori {
         return (a.min.x <= b.max.x && a.max.x >= b.min.x) && (a.min.y <= b.max.y && a.max.y >= b.min.y) && (a.min.z <= b.max.z && a.max.z >= b.min.z);
     }
 
+    // Matrix-Vector Multiplication
+
+    [[gnu::const]]
+    inline constexpr Vec4 operator*(const Mat4& m, Vec4 v) noexcept {
+        return {
+            m.m[0] * v.x + m.m[4] * v.y + m.m[8] * v.z + m.m[12] * v.w,
+            m.m[1] * v.x + m.m[5] * v.y + m.m[9] * v.z + m.m[13] * v.w,
+            m.m[2] * v.x + m.m[6] * v.y + m.m[10] * v.z + m.m[14] * v.w,
+            m.m[3] * v.x + m.m[7] * v.y + m.m[11] * v.z + m.m[15] * v.w
+        };
+    }
+
+    [[gnu::const]]
+    inline constexpr Aabb transform_aabb(const Mat4& m, const Aabb& box) noexcept {
+        Vec3 min = box.min;
+        Vec3 max = box.max;
+        
+        Vec3 corners[8] = {
+            { min.x, min.y, min.z },
+            { max.x, min.y, min.z },
+            { min.x, max.y, min.z },
+            { max.x, max.y, min.z },
+            { min.x, min.y, max.z },
+            { max.x, min.y, max.z },
+            { min.x, max.y, max.z },
+            { max.x, max.y, max.z }
+        };
+
+        Vec3 new_min = {
+            1e30f,
+            1e30f,
+            1e30f
+        };
+
+        Vec3 new_max = {
+            -1e30f,
+            -1e30f,
+            -1e30f
+        };
+
+        for (int i = 0; i < 8; ++i) {
+            Vec4 v = {
+                corners[i].x,
+                corners[i].y,
+                corners[i].z,
+                1.0f
+            };
+            Vec4 t = m * v;
+            
+            if (t.x < new_min.x) {
+                new_min.x = t.x;
+            }
+
+            if (t.y < new_min.y) {
+                new_min.y = t.y;
+            }
+
+            if (t.z < new_min.z) {
+                new_min.z = t.z;
+            }
+
+            if (t.x > new_max.x) {
+                new_max.x = t.x;
+            }
+
+            if (t.y > new_max.y) {
+                new_max.y = t.y;
+            }
+
+            if (t.z > new_max.z) {
+                new_max.z = t.z;
+            }
+        }
+
+        return {
+            new_min,
+            0,
+            new_max,
+            0
+        };
+    }
+
     // Files
     
     [[gnu::cold]]
