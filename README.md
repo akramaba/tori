@@ -2,17 +2,31 @@
 
 # Tori - 3D Engine in C++
 
-## About
+## About & Features
 
 Tori is a custom 3D Engine programmed in C++.
 
-Research for Tori started in July 2025. It was originally a D3D11 project, but then switched to OpenGL for potential cross-platform applications. The majority of the code was made in December 2025 and January 2026 after a long focus on my operating system (Mira OS) from September 2025 to November 2025. Tori was prepared and uploaded to the public on 2/7/2026.
+Feature | Description
+--- | ---
+Core & Memory | Custom arena allocator for aligned memory and parent-child scene hierarchy.
+Graphics | OpenGL window creation, delta time calculation, shader compilation, and depth tests.
+Models | Parses glTF files to support skeleton skins and keyframe animations.
+Camera | Perspective projection, view frustum math, WASD flight movement, and mouse zoom.
+Audio | Loads MP3 files, decodes audio data, mixes channels, allows loop toggles, and adjusts volume.
+Input | Records states for keyboard presses, mouse buttons, scroll wheel data, and cursor locks.
+Math & Collision | Custom 3D math library with vectors, quaternions, matrices, boundary boxes, and octree spatial trees.
+
+# Goals
 
 Tori's primary goal is to be as optimized as possible for speed. My development will start to pinpoint where code can further be faster. So far, I've done unrolling, inling of vector math, avoiding reallocation, static arrays, and batched GPU uniform uploads.
 
 I also focused on having a simple API while being feature-rich. Tori's API design achieves this by making the common case (window initialization, user input, MP3 audio playing, camera movement, skeletons animations, engine rendering, etc.) almost trivial through a global state, implicit resource management, hierarchical scenes, and custom math.
 
-## Plans
+# History
+
+Research for Tori started in July 2025. It was originally a D3D11 project, but then switched to OpenGL for potential cross-platform applications. The majority of the code was made in December 2025 and January 2026 after a long focus on my operating system (Mira OS) from September 2025 to November 2025. Tori was prepared and uploaded to the public on 2/7/2026.
+
+# Plans
 
 - Full documentation and more comments. I was glad to start a custom 3D engine after working with 2D graphics since December 2021. I'm looking to add more files like this to document the project structure and design, and comment more in the source files.
 - Optimizing code. There's definitely a lot of room for this, especially when it comes to anything compiler-related. Of course, personal code audits will be important for both speed and robustness, as Tori is heavy on math (Math.hpp & Model.cpp).
